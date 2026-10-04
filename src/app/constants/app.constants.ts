@@ -13,6 +13,7 @@ export const ADMIN_API_ENDPOINTS = {
   categories: 'admin/categories',
   orders: 'admin/orders',
   deliveryAgents: 'admin/delivery-agents',
+  deliveryAgent: (agentId: string) => `admin/delivery-agents/${agentId}`,
   section: {
     overview: (period: string) => `admin/analytics?period=${period}`,
     orders: (page: number, limit: number) => `admin/orders?page=${page}&limit=${limit}`,
@@ -223,6 +224,13 @@ export const ADMIN_APP_TEXT = {
     availability: 'Availability',
     available: 'Available',
     onDelivery: 'On delivery',
+    accountStatus: 'Account status',
+    active: 'Active',
+    inactive: 'Inactive',
+    edit: 'Edit',
+    deactivate: 'Deactivate',
+    activate: 'Activate',
+    delete: 'Delete',
     empty: 'No delivery partners found.',
   },
   payments: {
@@ -266,6 +274,7 @@ export const ADMIN_APP_TEXT = {
     save: 'Save',
     deliveryPartner: 'DELIVERY PARTNER',
     createAccount: 'Create delivery account',
+    editDeliveryPartner: 'Edit delivery partner',
     vehicleType: 'Vehicle type',
     bike: 'Bike',
     car: 'Car',
@@ -292,6 +301,10 @@ export const ADMIN_APP_TEXT = {
     unableLoadSection: 'Unable to load {{section}}.',
     unableRequestReset: 'Unable to request a password reset.',
     invalidResetLink: 'This reset link is invalid or expired.',
+    deliveryDetailsSaved: 'Delivery partner details saved.',
+    deliveryStatusUpdated: 'Delivery partner status updated.',
+    deliveryPartnerDeleted: 'Delivery partner deleted.',
+    deleteDeliveryPartnerConfirm: 'Delete {{name}}? This also removes the delivery account and cannot be undone.',
   },
 } as const;
 

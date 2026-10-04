@@ -46,7 +46,7 @@ export const adminDataReducer = createReducer(
   })),
   on(AdminActions.loadAdminSectionSuccess, (state, { section, data }) => ({
     ...state,
-    [section]: data,
+    [section === 'delivery' ? 'deliveryAgents' : section]: data,
     loading: false,
     loadingSection: null,
   })),

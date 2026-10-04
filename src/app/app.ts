@@ -6,7 +6,7 @@ import { Store } from '@ngrx/store';
 import { toSignal } from '@angular/core/rxjs-interop';
 import { finalize } from 'rxjs';
 import { AdminApiService } from './services/admin-api.service';
-import { AdminCategory, AdminOrder, AdminProduct, AdminSection, AnalyticsSummary, PaymentTransaction } from './models/admin.models';
+import { AdminCategory, AdminOrder, AdminProduct, AdminSection, AnalyticsSummary, DeliveryAgent, PaymentTransaction } from './models/admin.models';
 import {
   ADMIN_API_ENDPOINTS,
   ADMIN_APP_TEXT,
@@ -70,6 +70,7 @@ export class App implements OnInit {
   customerSearch = '';
   editingProductId: string | null = null;
   editingCategoryId: string | null = null;
+  editingAgentId: string | null = null;
   email = '';
   password = '';
   recoveryEmail = '';
@@ -217,13 +218,47 @@ export class App implements OnInit {
     this.runMutation(request, ADMIN_APP_TEXT.messages.categorySaved, ['categories', 'products']);
   }
 
-  openAgentForm() {
-    this.agentForm = this.emptyAgent();
+  openAgentForm(agent?: DeliveryAgent) {
+    this.editingAgentId = agent?._id ?? null;
+    this.agentForm = agent ? {
+      name: agent.user?.name || '',
+      email: agent.user?.email || '',
+      password: '',
+      phone: agent.user?.phone || '',
+      vehicleType: agent.vehicleType,
+      vehicleNumber: agent.vehicleNumber || '',
+      licenseNumber: agent.licenseNumber || '',
+    } : this.emptyAgent();
     this.dialog.set('agent');
   }
 
   saveAgent() {
-    this.runMutation(this.api.post(ADMIN_API_ENDPOINTS.deliveryAgents, this.agentForm), ADMIN_APP_TEXT.messages.deliveryAccountCreated, ['delivery']);
+    const request = this.editingAgentId
+      ? this.api.put(ADMIN_API_ENDPOINTS.deliveryAgent(this.editingAgentId), this.agentForm)
+      : this.api.post(ADMIN_API_ENDPOINTS.deliveryAgents, this.agentForm);
+    const message = this.editingAgentId
+      ? ADMIN_APP_TEXT.messages.deliveryDetailsSaved
+      : ADMIN_APP_TEXT.messages.deliveryAccountCreated;
+    this.runMutation(request, message, ['delivery']);
+  }
+
+  toggleDeliveryAgent(agent: DeliveryAgent) {
+    const isActive = agent.isActive === false;
+    this.runMutation(
+      this.api.put(ADMIN_API_ENDPOINTS.deliveryAgent(agent._id), { isActive }),
+      ADMIN_APP_TEXT.messages.deliveryStatusUpdated,
+      ['delivery'],
+    );
+  }
+
+  deleteDeliveryAgent(agent: DeliveryAgent) {
+    const name = agent.user?.name || agent.user?.email || agent._id;
+    if (!confirm(ADMIN_APP_TEXT.messages.deleteDeliveryPartnerConfirm.replace('{{name}}', name))) return;
+    this.runMutation(
+      this.api.delete(ADMIN_API_ENDPOINTS.deliveryAgent(agent._id)),
+      ADMIN_APP_TEXT.messages.deliveryPartnerDeleted,
+      ['delivery'],
+    );
   }
 
   updateOrderStatus(order: AdminOrder, status: string) {

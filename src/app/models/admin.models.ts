@@ -67,10 +67,12 @@ export interface AdminCategory {
 
 export interface DeliveryAgent {
   _id: string;
-  user: { _id: string; name: string; email: string; phone?: string };
+  user: { _id: string; name: string; email: string; phone?: string } | null;
   vehicleType: string;
   vehicleNumber?: string;
+  licenseNumber?: string;
   isAvailable: boolean;
+  isActive?: boolean;
   totalDeliveries: number;
   earnings: number;
 }
