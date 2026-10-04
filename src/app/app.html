@@ -1,0 +1,210 @@
+@if (!isAuthenticated() || recoveryMode() !== 'login') {
+  <main class="login-screen">
+    <section class="login-intro">
+      <div class="brand-lockup"><span class="brand-glyph">S</span><span>SHOPKEEPER</span></div>
+      <div class="login-copy">
+        <p class="eyebrow">OPERATIONS CONSOLE</p>
+        <h1>Run the shop.<br>Keep every order moving.</h1>
+        <p class="intro-body">Inventory, fulfillment, customers, and payments in one place.</p>
+      </div>
+      <p class="login-footnote">Authorized administrators only</p>
+    </section>
+    <section class="login-panel">
+      <div class="login-form-wrap">
+        @if (recoveryMode() === 'login') {
+          <p class="eyebrow">ADMIN SIGN IN</p>
+          <h2>Welcome back</h2>
+          <p class="muted">Use your administrator account to continue.</p>
+          @if (authError()) {
+            <div class="alert alert-error" role="alert">{{ authError() }}</div>
+          }
+          <form (ngSubmit)="signIn()" class="form-stack">
+            <label>Email address<input type="email" name="email" [(ngModel)]="email" autocomplete="username" required></label>
+            <label>Password<input type="password" name="password" [(ngModel)]="password" autocomplete="current-password" required></label>
+            <button class="button button-primary button-full" type="submit" [disabled]="authLoading() || !email || !password">
+              {{ authLoading() ? 'Signing in...' : 'Sign in' }}
+            </button>
+          </form>
+          <button class="text-button recovery-trigger" type="button" (click)="openPasswordRecovery()">Forgot password?</button>
+        } @else {
+          <button class="text-button recovery-trigger" type="button" (click)="returnToSignIn()">← Back to sign in</button>
+          @if (recoveryMode() === 'reset') {
+            <p class="eyebrow">ACCOUNT SECURITY</p>
+            <h2>Choose a new password</h2>
+            <p class="muted">Use at least 8 characters. This reset link can only be used once.</p>
+            @if (!recoveryToken()) {
+              <div class="alert alert-error" role="alert">This reset link is invalid or expired. Request a new link to continue.</div>
+              <button class="button button-primary button-full" type="button" (click)="openPasswordRecovery()">Request a new link</button>
+            } @else if (passwordResetComplete()) {
+              <div class="alert alert-success" role="status">{{ recoveryMessage() }}</div>
+              <button class="button button-primary button-full" type="button" (click)="returnToSignIn()">Return to sign in</button>
+            } @else {
+              @if (recoveryError() || authError()) {
+                <div class="alert alert-error" role="alert">{{ recoveryError() || authError() }}</div>
+              }
+              <form (ngSubmit)="updatePassword()" class="form-stack">
+                <label>New password<input type="password" name="recoveryPassword" [(ngModel)]="recoveryPassword" autocomplete="new-password" minlength="8" required></label>
+                <label>Confirm new password<input type="password" name="confirmRecoveryPassword" [(ngModel)]="confirmRecoveryPassword" autocomplete="new-password" minlength="8" required></label>
+                <button class="button button-primary button-full" type="submit" [disabled]="recoveryLoading() || !recoveryPassword || !confirmRecoveryPassword">
+                  {{ recoveryLoading() ? 'Updating...' : 'Update password' }}
+                </button>
+              </form>
+            }
+          } @else {
+            <p class="eyebrow">ACCOUNT RECOVERY</p>
+            <h2>Forgot your password?</h2>
+            <p class="muted">Enter your administrator email. If it matches, we’ll send a secure reset link.</p>
+            @if (recoveryError() || authError()) {
+              <div class="alert alert-error" role="alert">{{ recoveryError() || authError() }}</div>
+            }
+            @if (recoveryMessage()) {
+              <div class="alert alert-success" role="status">{{ recoveryMessage() }}</div>
+            }
+            @if (recoveryLink()) {
+              <a class="recovery-dev-link" [href]="recoveryLink()">Open development reset link</a>
+            }
+            <form (ngSubmit)="requestPasswordReset()" class="form-stack">
+              <label>Email address<input type="email" name="recoveryEmail" [(ngModel)]="recoveryEmail" autocomplete="email" required></label>
+              <button class="button button-primary button-full" type="submit" [disabled]="recoveryLoading() || !recoveryEmail.trim()">
+                {{ recoveryLoading() ? 'Sending...' : 'Send reset link' }}
+              </button>
+            </form>
+          }
+        }
+      </div>
+    </section>
+  </main>
+} @else {
+  <div class="admin-frame">
+    <aside class="sidebar">
+      <div class="brand-lockup"><span class="brand-glyph">S</span><span>SHOPKEEPER</span></div>
+      <div class="sidebar-caption">WORKSPACE</div>
+      <nav class="primary-nav" aria-label="Admin sections">
+        @for (section of sections; track section.id) {
+          <button type="button" class="nav-link" [class.nav-link-active]="activeSection() === section.id" (click)="loadSection(section.id)">
+            <span class="nav-mark">{{ section.mark }}</span><span>{{ section.label }}</span>
+          </button>
+        }
+      </nav>
+      <div class="sidebar-user">
+        <div class="avatar">{{ adminUser()?.name?.slice(0, 1) || 'A' }}</div>
+        <div class="sidebar-user-copy"><strong>{{ adminUser()?.name }}</strong><span>Administrator</span></div>
+        <button type="button" class="icon-button signout-button" aria-label="Sign out" title="Sign out" (click)="signOut()">↗</button>
+      </div>
+    </aside>
+
+    <div class="workspace">
+      <header class="topbar">
+        <div><span class="breadcrumb">Shop operations</span><span class="breadcrumb-divider">/</span><strong>{{ sectionTitle() }}</strong></div>
+        <div class="topbar-meta"><span class="connection-indicator"></span><span>API connected</span><span class="topbar-date">{{ today | date:'EEE, MMM d' }}</span><button class="icon-button topbar-signout" type="button" aria-label="Sign out" title="Sign out" (click)="signOut()">↗</button></div>
+      </header>
+
+      <main class="main-content">
+        @if (notice()) { <div class="alert alert-success" role="status">{{ notice() }}</div> }
+        @if (errorMessage()) { <div class="alert alert-error" role="alert">{{ errorMessage() }}</div> }
+
+        @switch (activeSection()) {
+          @case ('overview') {
+            <section class="page-heading"><div><p class="eyebrow">OVERVIEW / LAST 30 DAYS</p><h1>Good day, {{ adminUser()?.name?.split(' ')?.[0] || 'admin' }}</h1><p class="muted">A live view of orders, inventory, and customer activity.</p></div><button class="button button-secondary" type="button" (click)="loadSection('overview')" [disabled]="isLoading()">Refresh</button></section>
+            @if (overview(); as stats) {
+              <section class="metric-grid">
+                <article class="metric-panel metric-sales"><span class="metric-label">Delivered revenue</span><strong>{{ stats.totalRevenue | currency:'INR':'symbol':'1.0-0' }}</strong><span class="metric-foot">Delivered orders, last 30 days</span></article>
+                <article class="metric-panel"><span class="metric-label">Orders</span><strong>{{ stats.totalOrders | number }}</strong><span class="metric-foot">Placed in the last 30 days</span></article>
+                <article class="metric-panel"><span class="metric-label">Active products</span><strong>{{ stats.totalProducts | number }}</strong><span class="metric-foot">Available in the catalog</span></article>
+                <article class="metric-panel"><span class="metric-label">Customers</span><strong>{{ stats.totalUsers | number }}</strong><span class="metric-foot">Accounts created in the last 30 days</span></article>
+              </section>
+              <div class="overview-grid">
+                <section class="panel"><div class="panel-heading"><div><h2>Recent orders</h2><p>Latest activity</p></div><button class="text-button" type="button" (click)="loadSection('orders')">All orders</button></div>
+                  <div class="table-scroll"><table><thead><tr><th>Order</th><th>Customer</th><th>Status</th><th class="numeric">Total</th></tr></thead><tbody>
+                    @for (order of stats.recentOrders || []; track order._id) {<tr><td class="mono">{{ orderNumber(order) }}</td><td>{{ order.user?.name || order.user?.email || 'Customer' }}</td><td><span class="status-pill" [attr.data-status]="order.status">{{ order.status }}</span></td><td class="numeric">{{ order.total | currency:'INR':'symbol' }}</td></tr>}
+                    @empty {<tr><td colspan="4" class="empty-cell">No recent orders.</td></tr>}
+                  </tbody></table></div>
+                </section>
+                <section class="panel"><div class="panel-heading"><div><h2>Top products</h2><p>By units sold</p></div><button class="text-button" type="button" (click)="loadSection('products')">Inventory</button></div>
+                  <div class="rank-list">@for (product of stats.topProducts || []; track product._id; let index = $index) {<div class="rank-row"><span class="rank-number">{{ (index + 1).toString().padStart(2, '0') }}</span><div class="rank-copy"><strong>{{ product.name }}</strong><span>{{ product.stock }} in stock</span></div><strong class="rank-value">{{ product.soldCount || 0 }}</strong></div>} @empty {<p class="empty-state">No sales data yet.</p>}</div>
+                </section>
+              </div>
+            } @else if (isLoading()) {<section class="panel loading-state">Loading shop activity...</section>} @else {<section class="panel empty-state">No overview data is available.</section>}
+          }
+
+          @case ('orders') {
+            <section class="page-heading"><div><p class="eyebrow">FULFILLMENT</p><h1>Orders</h1><p class="muted">Review purchases and move each order through fulfillment.</p></div><button class="button button-secondary" type="button" (click)="loadSection('orders')" [disabled]="isLoading()">Refresh orders</button></section>
+            <section class="panel"><div class="table-toolbar"><div><h2>All orders</h2><p>{{ orders().length }} loaded</p></div><input class="search-input" type="search" placeholder="Search order or customer" [(ngModel)]="orderSearch"></div>
+              <div class="table-scroll"><table><thead><tr><th>Order</th><th>Placed</th><th>Customer</th><th>Items</th><th>Payment</th><th class="numeric">Total</th><th>Status</th></tr></thead><tbody>
+                @for (order of filteredOrders(); track order._id) {<tr><td class="mono">{{ orderNumber(order) }}</td><td>{{ order.createdAt | date:'mediumDate' }}</td><td>{{ order.user?.name || order.user?.email || 'Customer' }}</td><td>{{ order.items?.length || 0 }}</td><td><span class="status-pill" [attr.data-status]="order.payment?.status">{{ order.payment?.method || '—' }} · {{ order.payment?.status || '—' }}</span></td><td class="numeric">{{ order.total | currency:'INR':'symbol' }}</td><td><select class="status-select" [ngModel]="order.status" [ngModelOptions]="{standalone:true}" (ngModelChange)="updateOrderStatus(order, $event)">@for (status of orderStatuses; track status) {<option [value]="status">{{ status }}</option>}</select></td></tr>}
+                @empty {<tr><td colspan="7" class="empty-cell">No orders match this search.</td></tr>}
+              </tbody></table></div>
+            </section>
+          }
+
+          @case ('products') {
+            <section class="page-heading"><div><p class="eyebrow">CATALOG</p><h1>Inventory</h1><p class="muted">Manage product information, pricing, and stock.</p></div><button class="button button-primary" type="button" (click)="openProduct()">Add product</button></section>
+            <section class="panel"><div class="table-toolbar"><div><h2>Products</h2><p>{{ products().length }} loaded</p></div><input class="search-input" type="search" placeholder="Search products" [(ngModel)]="productSearch"></div>
+              <div class="table-scroll"><table><thead><tr><th>Product</th><th>SKU</th><th>Category</th><th class="numeric">Price</th><th class="numeric">Stock</th><th>Availability</th><th></th></tr></thead><tbody>
+                @for (product of filteredProducts(); track product._id) {<tr><td><div class="primary-cell">{{ product.name }}<small>{{ product.brand || product.description || '—' }}</small></div></td><td class="mono">{{ product.sku || '—' }}</td><td>{{ categoryName(product) }}</td><td class="numeric">{{ product.price | currency:'INR':'symbol' }}</td><td class="numeric" [class.low-stock]="product.stock <= 5">{{ product.stock }}</td><td><span class="status-pill" [attr.data-status]="product.isActive ? 'active' : 'inactive'">{{ product.isActive ? 'Active' : 'Archived' }}</span></td><td><div class="row-actions"><button class="text-button" type="button" (click)="openProduct(product)">Edit</button>@if (product.isActive) {<button class="text-button danger-text" type="button" (click)="archiveProduct(product)">Archive</button>}</div></td></tr>}
+                @empty {<tr><td colspan="7" class="empty-cell">No products match this search.</td></tr>}
+              </tbody></table></div>
+            </section>
+          }
+
+          @case ('categories') {
+            <section class="page-heading"><div><p class="eyebrow">CATALOG STRUCTURE</p><h1>Categories</h1><p class="muted">Organize products and control which categories appear in the shop.</p></div><button class="button button-primary" type="button" (click)="openCategory()">Add category</button></section>
+            <section class="panel"><div class="table-scroll"><table><thead><tr><th>Category</th><th>Description</th><th class="numeric">Sort order</th><th>Visibility</th><th></th></tr></thead><tbody>
+              @for (category of categories(); track category._id) {<tr><td class="primary-cell">{{ category.name }}<small class="mono">{{ category._id }}</small></td><td>{{ category.description || '—' }}</td><td class="numeric">{{ category.sortOrder || 0 }}</td><td><span class="status-pill" [attr.data-status]="category.isActive ? 'active' : 'inactive'">{{ category.isActive ? 'Visible' : 'Hidden' }}</span></td><td><div class="row-actions"><button class="text-button" type="button" (click)="openCategory(category)">Edit</button><button class="text-button" type="button" (click)="toggleCategory(category)">{{ category.isActive ? 'Hide' : 'Show' }}</button></div></td></tr>}
+              @empty {<tr><td colspan="5" class="empty-cell">No categories found.</td></tr>}
+            </tbody></table></div></section>
+          }
+
+          @case ('customers') {
+            <section class="page-heading"><div><p class="eyebrow">CUSTOMER ACCOUNTS</p><h1>Customers</h1><p class="muted">Review registered accounts and verification status.</p></div><button class="button button-secondary" type="button" (click)="loadSection('customers')" [disabled]="isLoading()">Refresh</button></section>
+            <section class="panel"><div class="table-toolbar"><div><h2>Customer directory</h2><p>{{ customers().length }} loaded</p></div><input class="search-input" type="search" placeholder="Search name or email" [(ngModel)]="customerSearch"></div>
+              <div class="table-scroll"><table><thead><tr><th>Customer</th><th>Email</th><th>Phone</th><th>Joined</th><th>Verification</th></tr></thead><tbody>
+                @for (customer of filteredCustomers(); track customer._id) {<tr><td>{{ customer.name }}</td><td>{{ customer.email }}</td><td>{{ customer.phone || '—' }}</td><td>{{ customer.createdAt | date:'mediumDate' }}</td><td><span class="status-pill" [attr.data-status]="customer.isVerified ? 'active' : 'pending'">{{ customer.isVerified ? 'Verified' : 'Pending' }}</span></td></tr>}
+                @empty {<tr><td colspan="5" class="empty-cell">No customers match this search.</td></tr>}
+              </tbody></table></div>
+            </section>
+          }
+
+          @case ('delivery') {
+            <section class="page-heading"><div><p class="eyebrow">FULFILLMENT TEAM</p><h1>Delivery team</h1><p class="muted">Create rider accounts and review delivery activity.</p></div><button class="button button-primary" type="button" (click)="openAgentForm()">Add delivery partner</button></section>
+            <section class="panel"><div class="table-scroll"><table><thead><tr><th>Partner</th><th>Email</th><th>Phone</th><th>Vehicle</th><th class="numeric">Deliveries</th><th class="numeric">Earnings</th><th>Availability</th></tr></thead><tbody>
+              @for (agent of deliveryAgents(); track agent._id) {<tr><td class="primary-cell">{{ agent.user.name }}<small class="mono">{{ agent._id }}</small></td><td>{{ agent.user.email }}</td><td>{{ agent.user.phone || '-' }}</td><td>{{ agent.vehicleType }} {{ agent.vehicleNumber || '' }}</td><td class="numeric">{{ agent.totalDeliveries || 0 }}</td><td class="numeric">{{ agent.earnings || 0 | currency:'INR':'symbol' }}</td><td><span class="status-pill" [attr.data-status]="agent.isAvailable ? 'active' : 'pending'">{{ agent.isAvailable ? 'Available' : 'On delivery' }}</span></td></tr>}
+              @empty {<tr><td colspan="7" class="empty-cell">No delivery partners found.</td></tr>}
+            </tbody></table></div></section>
+          }
+
+          @case ('payments') {
+            <section class="page-heading"><div><p class="eyebrow">SETTLEMENTS</p><h1>Payment activity</h1><p class="muted">Provider attempts, COD collections, failures, and refunds.</p></div><button class="button button-secondary" type="button" (click)="loadSection('payments')" [disabled]="isLoading()">Refresh</button></section>
+            <section class="panel"><div class="table-scroll"><table><thead><tr><th>Reference</th><th>Order</th><th>Provider</th><th>Method</th><th>Status</th><th class="numeric">Amount</th><th>Recorded</th></tr></thead><tbody>
+              @for (payment of payments(); track payment._id) {<tr><td class="mono">{{ payment.gatewayRefundId || payment.gatewayPaymentId || payment.gatewayOrderId || payment._id }}</td><td class="mono">{{ paymentOrderNumber(payment) }}</td><td>{{ payment.provider | uppercase }}</td><td>{{ payment.method || payment.type }}</td><td><span class="status-pill" [attr.data-status]="payment.status">{{ payment.status }}</span>@if (payment.failureDescription) {<small class="failure-detail">{{ payment.failureDescription }}</small>}</td><td class="numeric">{{ paymentAmountMinor(payment) | currency:payment.currency:'symbol' }}</td><td>{{ payment.createdAt | date:'short' }}</td></tr>}
+              @empty {<tr><td colspan="7" class="empty-cell">No payment transactions found.</td></tr>}
+            </tbody></table></div></section>
+          }
+        }
+      </main>
+    </div>
+  </div>
+}
+
+@if (dialog(); as activeDialog) {
+  <div class="modal-backdrop" (click)="closeDialog()" (keydown.escape)="closeDialog()">
+    <section class="modal-panel" role="dialog" aria-modal="true" [attr.aria-labelledby]="activeDialog + '-title'" (click)="$event.stopPropagation()">
+      @if (activeDialog === 'product') {
+        <form (ngSubmit)="saveProduct()"><div class="modal-heading"><div><p class="eyebrow">CATALOG</p><h2 id="product-title">{{ editingProductId ? 'Edit product' : 'Add product' }}</h2></div><button type="button" class="icon-button" aria-label="Close" (click)="closeDialog()">×</button></div>
+          <div class="form-grid"><label class="span-two">Name<input name="productName" [(ngModel)]="productForm.name" required maxlength="120"></label><label>SKU<input name="productSku" [(ngModel)]="productForm.sku"></label><label>Brand<input name="productBrand" [(ngModel)]="productForm.brand"></label><label>Price (INR)<input type="number" name="productPrice" [(ngModel)]="productForm.price" min="0.01" step="0.01" required></label><label>Original price<input type="number" name="originalPrice" [(ngModel)]="productForm.originalPrice" min="0" step="0.01"></label><label>Stock<input type="number" name="productStock" [(ngModel)]="productForm.stock" min="0" step="1" required></label><label>Category<select name="productCategory" [(ngModel)]="productForm.category" required><option value="">Select category</option>@for (category of categories(); track category._id) {<option [value]="category._id">{{ category.name }}</option>}</select></label><label class="span-two">Image URLs<input name="productImages" [(ngModel)]="productForm.imageUrls" placeholder="https://... (comma separated)"></label><label class="span-two">Description<textarea name="productDescription" [(ngModel)]="productForm.description" rows="3"></textarea></label><label class="checkbox-label span-two"><input type="checkbox" name="productActive" [(ngModel)]="productForm.isActive"> Product is active</label></div>
+          <div class="modal-actions"><button type="button" class="button button-secondary" (click)="closeDialog()">Cancel</button><button class="button button-primary" [disabled]="isSaving()">{{ isSaving() ? 'Saving...' : 'Save product' }}</button></div>
+        </form>
+      } @else if (activeDialog === 'category') {
+        <form (ngSubmit)="saveCategory()"><div class="modal-heading"><div><p class="eyebrow">CATALOG STRUCTURE</p><h2 id="category-title">{{ editingCategoryId ? 'Edit category' : 'Add category' }}</h2></div><button type="button" class="icon-button" aria-label="Close" (click)="closeDialog()">×</button></div>
+          <div class="form-grid"><label class="span-two">Name<input name="categoryName" [(ngModel)]="categoryForm.name" required maxlength="80"></label><label>Sort order<input type="number" name="categorySort" [(ngModel)]="categoryForm.sortOrder" step="1"></label><label>Image URL<input name="categoryImage" [(ngModel)]="categoryForm.image"></label><label class="span-two">Description<textarea name="categoryDescription" [(ngModel)]="categoryForm.description" rows="3"></textarea></label><label class="checkbox-label span-two"><input type="checkbox" name="categoryActive" [(ngModel)]="categoryForm.isActive"> Visible in shop</label></div>
+          <div class="modal-actions"><button type="button" class="button button-secondary" (click)="closeDialog()">Cancel</button><button class="button button-primary" [disabled]="isSaving()">Save category</button></div>
+        </form>
+      } @else {
+        <form (ngSubmit)="saveAgent()"><div class="modal-heading"><div><p class="eyebrow">FULFILLMENT TEAM</p><h2 id="agent-title">Add delivery partner</h2></div><button type="button" class="icon-button" aria-label="Close" (click)="closeDialog()">×</button></div>
+          <div class="form-grid"><label>Name<input name="agentName" [(ngModel)]="agentForm.name" required></label><label>Email<input type="email" name="agentEmail" [(ngModel)]="agentForm.email" required></label><label>Password<input type="password" name="agentPassword" [(ngModel)]="agentForm.password" minlength="8" required></label><label>Phone<input name="agentPhone" [(ngModel)]="agentForm.phone"></label><label>Vehicle<select name="agentVehicle" [(ngModel)]="agentForm.vehicleType"><option value="bike">Bike</option><option value="car">Car</option><option value="truck">Truck</option></select></label><label>Vehicle number<input name="agentVehicleNumber" [(ngModel)]="agentForm.vehicleNumber"></label><label class="span-two">License number<input name="agentLicense" [(ngModel)]="agentForm.licenseNumber"></label></div>
+          <div class="modal-actions"><button type="button" class="button button-secondary" (click)="closeDialog()">Cancel</button><button class="button button-primary" [disabled]="isSaving()">Create account</button></div>
+        </form>
+      }
+    </section>
+  </div>
+}
