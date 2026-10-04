@@ -1,11 +1,19 @@
 import { CommonModule } from '@angular/common';
 import { Component, computed, inject, OnInit, signal } from '@angular/core';
+import { Meta, Title } from '@angular/platform-browser';
 import { FormsModule } from '@angular/forms';
 import { Store } from '@ngrx/store';
 import { toSignal } from '@angular/core/rxjs-interop';
 import { finalize } from 'rxjs';
 import { AdminApiService } from './services/admin-api.service';
 import { AdminCategory, AdminOrder, AdminProduct, AdminSection, AnalyticsSummary, PaymentTransaction } from './models/admin.models';
+import {
+  ADMIN_API_ENDPOINTS,
+  ADMIN_APP_TEXT,
+  ADMIN_CONFIG,
+  ADMIN_ORDER_STATUSES,
+  ADMIN_SECTIONS,
+} from './constants/app.constants';
 import {
   adminLogin,
   adminLogout,
@@ -25,6 +33,9 @@ import { initialAdminDataState } from './store/admin.reducer';
   styleUrl: './app.scss',
 })
 export class App implements OnInit {
+  private readonly title = inject(Title);
+  private readonly meta = inject(Meta);
+  readonly text = ADMIN_APP_TEXT;
   private readonly store = inject(Store<AdminAppState>);
   private readonly api = inject(AdminApiService);
   private readonly authState = toSignal(this.store.select((state: AdminAppState) => state.auth), { initialValue: initialAdminAuthState });
@@ -49,6 +60,7 @@ export class App implements OnInit {
   payments = computed(() => this.adminState().payments);
   activeSection = signal<AdminSection>('overview');
   readonly today = new Date();
+  readonly minimumPasswordLength = ADMIN_CONFIG.minimumPasswordLength;
   mutationError = signal('');
   notice = signal('');
   isSaving = signal(false);
@@ -73,18 +85,12 @@ export class App implements OnInit {
   productForm = this.emptyProduct();
   categoryForm = this.emptyCategory();
   agentForm = this.emptyAgent();
-  readonly orderStatuses = ['pending', 'confirmed', 'processing', 'shipped', 'delivered', 'cancelled', 'refunded'];
-  readonly sections: Array<{ id: AdminSection; label: string; mark: string }> = [
-    { id: 'overview', label: 'Overview', mark: 'OV' },
-    { id: 'orders', label: 'Orders', mark: 'OR' },
-    { id: 'products', label: 'Inventory', mark: 'IN' },
-    { id: 'categories', label: 'Categories', mark: 'CA' },
-    { id: 'customers', label: 'Customers', mark: 'CU' },
-    { id: 'delivery', label: 'Delivery team', mark: 'DT' },
-    { id: 'payments', label: 'Payments', mark: 'PY' },
-  ];
+  readonly orderStatuses = ADMIN_ORDER_STATUSES;
+  readonly sections = ADMIN_SECTIONS;
 
   ngOnInit() {
+    this.title.setTitle(ADMIN_APP_TEXT.appName);
+    this.meta.updateTag({ name: 'description', content: ADMIN_APP_TEXT.description });
     if (this.isAuthenticated()) this.loadSection('overview');
   }
 
@@ -101,7 +107,7 @@ export class App implements OnInit {
   requestPasswordReset() {
     this.recoveryError.set('');
     if (!this.recoveryEmail.trim()) {
-      this.recoveryError.set('Enter the email address on your administrator account.');
+      this.recoveryError.set(ADMIN_APP_TEXT.recovery.emailRequired);
       return;
     }
     this.store.dispatch(requestAdminPasswordReset({ email: this.recoveryEmail.trim().toLowerCase() }));
@@ -109,12 +115,12 @@ export class App implements OnInit {
 
   updatePassword() {
     this.recoveryError.set('');
-    if (this.recoveryPassword.length < 8) {
-      this.recoveryError.set('Use at least 8 characters for your new password.');
+    if (this.recoveryPassword.length < ADMIN_CONFIG.minimumPasswordLength) {
+      this.recoveryError.set(ADMIN_APP_TEXT.recovery.minimumPassword.replace('{{length}}', ADMIN_CONFIG.minimumPasswordLength.toString()));
       return;
     }
     if (this.recoveryPassword !== this.confirmRecoveryPassword) {
-      this.recoveryError.set('The passwords do not match.');
+      this.recoveryError.set(ADMIN_APP_TEXT.recovery.passwordsMismatch);
       return;
     }
     this.store.dispatch(resetAdminPassword({
@@ -151,7 +157,7 @@ export class App implements OnInit {
   }
 
   sectionTitle(): string {
-    return this.sections.find((section) => section.id === this.activeSection())?.label || 'Overview';
+    return this.sections.find((section) => section.id === this.activeSection())?.label || ADMIN_APP_TEXT.sections.overview;
   }
 
   openProduct(product?: AdminProduct) {
@@ -182,14 +188,14 @@ export class App implements OnInit {
       stock: Number(this.productForm.stock),
     };
     const request = this.editingProductId
-      ? this.api.put(`admin/products/${this.editingProductId}`, body)
-      : this.api.post('admin/products', body);
-    this.runMutation(request, 'Product saved.', ['products']);
+      ? this.api.put(`${ADMIN_API_ENDPOINTS.products}/${this.editingProductId}`, body)
+      : this.api.post(ADMIN_API_ENDPOINTS.products, body);
+    this.runMutation(request, ADMIN_APP_TEXT.messages.productSaved, ['products']);
   }
 
   archiveProduct(product: AdminProduct) {
-    if (!confirm(`Archive ${product.name}? It will no longer appear in the shop.`)) return;
-    this.runMutation(this.api.delete(`admin/products/${product._id}`), 'Product archived.', ['products']);
+    if (!confirm(ADMIN_APP_TEXT.messages.archiveConfirm.replace('{{name}}', product.name))) return;
+    this.runMutation(this.api.delete(`${ADMIN_API_ENDPOINTS.products}/${product._id}`), ADMIN_APP_TEXT.messages.productArchived, ['products']);
   }
 
   openCategory(category?: AdminCategory) {
@@ -206,9 +212,9 @@ export class App implements OnInit {
 
   saveCategory() {
     const request = this.editingCategoryId
-      ? this.api.put(`admin/categories/${this.editingCategoryId}`, this.categoryForm)
-      : this.api.post('admin/categories', this.categoryForm);
-    this.runMutation(request, 'Category saved.', ['categories', 'products']);
+      ? this.api.put(`${ADMIN_API_ENDPOINTS.categories}/${this.editingCategoryId}`, this.categoryForm)
+      : this.api.post(ADMIN_API_ENDPOINTS.categories, this.categoryForm);
+    this.runMutation(request, ADMIN_APP_TEXT.messages.categorySaved, ['categories', 'products']);
   }
 
   openAgentForm() {
@@ -217,14 +223,14 @@ export class App implements OnInit {
   }
 
   saveAgent() {
-    this.runMutation(this.api.post('admin/delivery-agents', this.agentForm), 'Delivery account created.', ['delivery']);
+    this.runMutation(this.api.post(ADMIN_API_ENDPOINTS.deliveryAgents, this.agentForm), ADMIN_APP_TEXT.messages.deliveryAccountCreated, ['delivery']);
   }
 
   updateOrderStatus(order: AdminOrder, status: string) {
     if (order.status === status) return;
     this.runMutation(
-      this.api.put(`admin/orders/${order._id}/status`, { status }),
-      `Order ${order.tracking?.trackingNumber || order._id} updated.`,
+      this.api.put(`${ADMIN_API_ENDPOINTS.orders}/${order._id}/status`, { status }),
+      ADMIN_APP_TEXT.messages.orderUpdated.replace('{{order}}', order.tracking?.trackingNumber || order._id),
       ['orders', 'overview'],
     );
   }
@@ -238,7 +244,7 @@ export class App implements OnInit {
   }
 
   categoryName(product: AdminProduct): string {
-    return typeof product.category === 'string' ? 'Category' : product.category?.name || 'Category';
+    return typeof product.category === 'string' ? ADMIN_APP_TEXT.messages.categoryFallback : product.category?.name || ADMIN_APP_TEXT.messages.categoryFallback;
   }
 
   orderNumber(order: AdminOrder): string {
@@ -252,7 +258,7 @@ export class App implements OnInit {
   }
 
   paymentAmountMinor(payment: { amountMinor: number }): number {
-    return payment.amountMinor / 100;
+    return payment.amountMinor / ADMIN_CONFIG.minorCurrencyUnitsPerMajor;
   }
 
   trackById(_index: number, item: { _id: string }): string {
@@ -285,8 +291,8 @@ export class App implements OnInit {
 
   toggleCategory(category: AdminCategory) {
     this.runMutation(
-      this.api.put(`admin/categories/${category._id}`, { isActive: !category.isActive }),
-      category.isActive ? 'Category hidden.' : 'Category made visible.',
+      this.api.put(`${ADMIN_API_ENDPOINTS.categories}/${category._id}`, { isActive: !category.isActive }),
+      category.isActive ? ADMIN_APP_TEXT.messages.categoryHidden : ADMIN_APP_TEXT.messages.categoryVisible,
       ['categories', 'products'],
     );
   }
@@ -300,7 +306,7 @@ export class App implements OnInit {
         this.notice.set(message);
         reload.forEach((section) => this.store.dispatch(loadAdminSection({ section })));
       },
-      error: (error) => this.mutationError.set(error?.error?.message || 'The change could not be saved.'),
+      error: (error) => this.mutationError.set(error?.error?.message || ADMIN_APP_TEXT.messages.saveFailed),
     });
   }
 

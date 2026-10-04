@@ -2,7 +2,8 @@ import { inject, Injectable } from '@angular/core';
 import { Actions, createEffect, ofType } from '@ngrx/effects';
 import { catchError, exhaustMap, map, of, switchMap, tap } from 'rxjs';
 import { AdminApiService } from '../services/admin-api.service';
-import { AdminLoginResponse } from '../models/admin.models';
+import { AdminLoginResponse, AdminSection } from '../models/admin.models';
+import { ADMIN_API_ENDPOINTS, ADMIN_APP_TEXT, ADMIN_CONFIG, ADMIN_STORAGE_KEYS } from '../constants/app.constants';
 import * as AuthActions from './auth.actions';
 import * as AdminActions from './admin.actions';
 
@@ -13,12 +14,12 @@ export class AdminEffects {
 
   login$ = createEffect(() => this.actions$.pipe(
     ofType(AuthActions.adminLogin),
-    exhaustMap(({ email, password }) => this.api.post<AdminLoginResponse>('admin/login', { email, password }).pipe(
+    exhaustMap(({ email, password }) => this.api.post<AdminLoginResponse>(ADMIN_API_ENDPOINTS.login, { email, password }).pipe(
       map((response) => response?.success && response.token && response.user?.isAdmin
         ? AuthActions.adminLoginSuccess({ token: response.token, user: response.user })
-        : AuthActions.adminLoginFailure({ error: 'This account does not have administrator access.' })),
+        : AuthActions.adminLoginFailure({ error: ADMIN_APP_TEXT.messages.accountAccessRequired })),
       catchError((error) => of(AuthActions.adminLoginFailure({
-        error: error?.error?.message || 'Unable to sign in. Check the administrator credentials.',
+        error: error?.error?.message || ADMIN_APP_TEXT.messages.unableSignIn,
       }))),
     )),
   ));
@@ -26,16 +27,16 @@ export class AdminEffects {
   persistLogin$ = createEffect(() => this.actions$.pipe(
     ofType(AuthActions.adminLoginSuccess),
     tap(({ token, user }) => {
-      localStorage.setItem('shopkeeperAdminToken', token);
-      localStorage.setItem('shopkeeperAdminUser', JSON.stringify(user));
+      localStorage.setItem(ADMIN_STORAGE_KEYS.accessToken, token);
+      localStorage.setItem(ADMIN_STORAGE_KEYS.user, JSON.stringify(user));
     }),
   ), { dispatch: false });
 
   clearSession$ = createEffect(() => this.actions$.pipe(
     ofType(AuthActions.adminLogout),
     tap(() => {
-      localStorage.removeItem('shopkeeperAdminToken');
-      localStorage.removeItem('shopkeeperAdminUser');
+      localStorage.removeItem(ADMIN_STORAGE_KEYS.accessToken);
+      localStorage.removeItem(ADMIN_STORAGE_KEYS.user);
     }),
   ), { dispatch: false });
 
@@ -52,45 +53,45 @@ export class AdminEffects {
         data: this.dataFor(section, response),
       })),
       catchError((error) => of(AdminActions.loadAdminSectionFailure({
-        error: error?.error?.message || `Unable to load ${section}.`,
+        error: error?.error?.message || ADMIN_APP_TEXT.messages.unableLoadSection.replace('{{section}}', section),
       }))),
     )),
   ));
 
   requestAdminPasswordReset$ = createEffect(() => this.actions$.pipe(
     ofType(AuthActions.requestAdminPasswordReset),
-    exhaustMap(({ email }) => this.api.post<any>('auth/forgot-password', { email }).pipe(
+    exhaustMap(({ email }) => this.api.post<any>(ADMIN_API_ENDPOINTS.forgotPassword, { email }).pipe(
       map((response) => AuthActions.requestAdminPasswordResetSuccess({
-        message: response?.message || 'If an account exists, a reset link has been sent.',
+        message: response?.message || ADMIN_APP_TEXT.recovery.requestFallback,
         resetLink: response?.resetLink,
       })),
       catchError((error) => of(AuthActions.requestAdminPasswordResetFailure({
-        error: error?.error?.message || 'Unable to request a password reset.',
+        error: error?.error?.message || ADMIN_APP_TEXT.messages.unableRequestReset,
       }))),
     )),
   ));
 
   resetAdminPassword$ = createEffect(() => this.actions$.pipe(
     ofType(AuthActions.resetAdminPassword),
-    exhaustMap(({ token, password }) => this.api.post<any>('auth/reset-password', { token, password }).pipe(
+    exhaustMap(({ token, password }) => this.api.post<any>(ADMIN_API_ENDPOINTS.resetPassword, { token, password }).pipe(
       map(() => AuthActions.resetAdminPasswordSuccess()),
       catchError((error) => of(AuthActions.resetAdminPasswordFailure({
-        error: error?.error?.message || 'This reset link is invalid or expired.',
+        error: error?.error?.message || ADMIN_APP_TEXT.messages.invalidResetLink,
       }))),
     )),
   ));
 
-  private pathFor(section: string): string {
-    const paths: Record<string, string> = {
-      overview: 'admin/analytics?period=30d',
-      orders: 'admin/orders?page=1&limit=100',
-      products: 'admin/products?page=1&limit=100',
-      categories: 'admin/categories',
-      customers: 'admin/users?page=1&limit=100',
-      delivery: 'admin/delivery-agents',
-      payments: 'payments/admin/transactions?page=1&limit=100',
+  private pathFor(section: AdminSection): string {
+    const paths: Record<AdminSection, string> = {
+      overview: ADMIN_API_ENDPOINTS.section.overview(ADMIN_CONFIG.defaultAnalyticsPeriod),
+      orders: ADMIN_API_ENDPOINTS.section.orders(ADMIN_CONFIG.defaultPage, ADMIN_CONFIG.defaultPageSize),
+      products: ADMIN_API_ENDPOINTS.section.products(ADMIN_CONFIG.defaultPage, ADMIN_CONFIG.defaultPageSize),
+      categories: ADMIN_API_ENDPOINTS.section.categories,
+      customers: ADMIN_API_ENDPOINTS.section.customers(ADMIN_CONFIG.defaultPage, ADMIN_CONFIG.defaultPageSize),
+      delivery: ADMIN_API_ENDPOINTS.section.delivery,
+      payments: ADMIN_API_ENDPOINTS.section.payments(ADMIN_CONFIG.defaultPage, ADMIN_CONFIG.defaultPageSize),
     };
-    return paths[section] || paths['overview'];
+    return paths[section];
   }
 
   private dataFor(section: string, response: any): unknown {

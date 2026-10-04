@@ -1,10 +1,11 @@
 import { createReducer, on } from '@ngrx/store';
 import { AdminUser } from '../models/admin.models';
 import * as AuthActions from './auth.actions';
+import { ADMIN_STORAGE_KEYS } from '../constants/app.constants';
 
 const readAdminUser = (): AdminUser | null => {
   try {
-    return JSON.parse(localStorage.getItem('shopkeeperAdminUser') || 'null');
+    return JSON.parse(localStorage.getItem(ADMIN_STORAGE_KEYS.user) || 'null');
   } catch {
     return null;
   }
@@ -22,7 +23,7 @@ export interface AdminAuthState {
 }
 
 export const initialAdminAuthState: AdminAuthState = {
-  token: typeof localStorage === 'undefined' ? null : localStorage.getItem('shopkeeperAdminToken'),
+  token: typeof localStorage === 'undefined' ? null : localStorage.getItem(ADMIN_STORAGE_KEYS.accessToken),
   user: typeof localStorage === 'undefined' ? null : readAdminUser(),
   loading: false,
   error: null,
